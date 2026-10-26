@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e2531f">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Playbook</title>
+</head>
+<body>
+
+<!-- Unsichtbares SVG: Pfeilspitze + Messhilfe für Pfadlängen -->
+<svg id="measure" width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" class="mk"/>
+    </marker>
+  </defs>
+</svg>
+
+<header>
+  <div class="logo"><i></i>Playbook</div>
+  <nav>
+    <button data-go="dash">Übersicht</button>
+    <button data-go="new">Neuer Spielzug</button>
+    <button data-go="archive">Archiv</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ÜBERSICHT -->
+  <section id="v-dash" class="view">
+    <h2>Übersicht</h2>
+    <div class="stats" id="db-stats"></div>
+    <div class="row wrap actions">
+      <button class="btn primary" data-go="new">+ Neuer Spielzug</button>
+      <button class="btn" data-act="import">Spielzug importieren</button>
+      <button class="btn ghost" data-go="archive">Zum Archiv</button>
+    </div>
+    <h3>Zuletzt bearbeitet</h3>
+    <div id="db-recent" class="grid"></div>
+    <div class="card info">
+      Alle Spielzüge werden nur auf diesem Gerät gespeichert. Neue Spielzüge vom Trainer kommen als
+      <b>.json-Datei</b> (z.&nbsp;B. per WhatsApp oder E-Mail) und werden über „Importieren“ ins Archiv übernommen.
+      Ein importierter Spielzug mit gleicher Kennung ersetzt die ältere Version.
+    </div>
+  </section>
+
+  <!-- EDITOR -->
+  <section id="v-editor" class="view" hidden>
+    <div class="head">
+      <h2 id="ed-title">Neuer Spielzug</h2>
+      <div class="row">
+        <button class="btn ghost" id="ed-discard">Verwerfen</button>
+        <button class="btn primary" id="ed-save">Speichern</button>
+      </div>
+    </div>
+    <div class="ed-grid">
+      <div>
+        <div class="tools" id="tools">
+          <button data-tool="setup">Aufstellung</button>
+          <button data-tool="ball">Ballbesitz</button>
+          <button data-tool="cut">Laufweg</button>
+          <button data-tool="dribble">Dribbling</button>
+          <button data-tool="screen">Block</button>
+          <button data-tool="pass">Pass</button>
+          <button data-tool="erase">Aktion löschen</button>
+        </div>
+        <svg id="ed-svg" class="court-svg editable"></svg>
+        <div class="hint" id="ed-hint"></div>
+        <div class="pending" id="ed-pending" hidden>
+          <span>Weitere Punkte antippen …</span>
+          <button class="btn primary sm" id="ed-finish">✓ Fertig</button>
+          <button class="btn ghost sm" id="ed-cancel">Abbrechen</button>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card">
+          <div class="steps-nav">
+            <button class="btn sm" id="ed-prev" aria-label="Vorheriger Schritt">◀</button>
+            <strong id="ed-step">Schritt 1 / 1</strong>
+            <button class="btn sm" id="ed-next" aria-label="Nächster Schritt">▶</button>
+          </div>
+          <div class="row wrap">
+            <button class="btn sm" id="ed-add">+ Schritt</button>
+            <button class="btn sm ghost danger" id="ed-del">Schritt löschen</button>
+            <button class="btn sm" id="ed-preview">▶ Vorschau</button>
+          </div>
+          <label>Notiz zu diesem Schritt
+            <textarea id="ed-note" placeholder="z. B. 4 stellt Block für 1, 1 zieht zum Korb"></textarea>
+          </label>
+          <label class="chk"><input type="checkbox" id="ed-smooth" checked> Laufwege runden</label>
+        </div>
+        <div class="card">
+          <label style="margin-top:0">Name
+            <input id="ed-name" placeholder="z. B. Horns Flare">
+          </label>
+          <label>Kategorie <select id="ed-cat"></select></label>
+          <label>Beschreibung
+            <textarea id="ed-desc" placeholder="Wann spielen wir das? Worauf kommt es an?"></textarea>
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHIV -->
+  <section id="v-archive" class="view" hidden>
+    <div class="head">
+      <h2>Archiv</h2>
+      <div class="row wrap">
+        <button class="btn" data-act="import">Importieren</button>
+        <button class="btn ghost" id="ar-backup">Alle exportieren</button>
+      </div>
+    </div>
+    <div class="filters">
+      <input id="ar-search" type="search" placeholder="Suchen …">
+      <select id="ar-cat"></select>
+    </div>
+    <div id="ar-list" class="grid"></div>
+  </section>
+
+  <!-- ANSICHT EINES SPIELZUGS -->
+  <section id="v-viewer" class="view" hidden>
+    <button class="btn ghost sm" data-go="archive">← Archiv</button>
+    <div class="head" style="margin-top:8px">
+      <div>
+        <span class="chip" id="vw-cat"></span>
+        <h2 id="vw-title"></h2>
+        <p class="muted" id="vw-desc" style="margin:0"></p>
+      </div>
+      <div class="row wrap">
+        <button class="btn primary" id="vw-share">Teilen</button>
+        <button class="btn" id="vw-export">Als Datei speichern</button>
+        <button class="btn ghost" id="vw-edit">Bearbeiten</button>
+        <button class="btn ghost danger" id="vw-delete">Löschen</button>
+      </div>
+    </div>
+    <div class="vw-grid">
+      <div>
+        <svg id="vw-svg" class="court-svg"></svg>
+        <div class="controls">
+          <button class="btn sm" id="vw-first" aria-label="Zum Anfang">⏮</button>
+          <button class="btn sm" id="vw-prev" aria-label="Schritt zurück">◀</button>
+          <button class="btn primary" id="vw-play">▶ Abspielen</button>
+          <button class="btn sm" id="vw-next" aria-label="Schritt vor">▶</button>
+          <select id="vw-speed" aria-label="Geschwindigkeit">
+            <option value="0.5">0,5×</option><option value="0.75">0,75×</option>
+            <option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="step-label" id="vw-step"></div>
+        <ol id="vw-steps"></ol>
+      </div>
+    </div>
+  </section>
+</main>
+
+<input type="file" id="file-in" accept=".json,application/json" multiple hidden>
+<div id="toast"></div>
+<div class="dropzone" id="dropzone">Datei hier ablegen zum Importieren</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
