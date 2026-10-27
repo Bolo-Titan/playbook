@@ -1,6 +1,9 @@
 // Editor: Spielzug zeichnen (Aufstellung, Laufwege, Dribbling, Block, Pass) in mehreren Schritten.
 import { CATEGORIES, PLAYER_RADIUS as R } from '../core/constants.js';
-import { clone, dist, clampPoint, round2, emptyStep, newPlay, stateAt } from '../core/model.js';
+import {
+  clone, dist, clampPoint, round2, emptyStep, newPlay, stateAt,
+  positionsAt, stepBeats, lastBeatOf, tidyStep,
+} from '../core/model.js';
 import { smoothD, polyD } from '../core/geometry.js';
 import { el } from '../render/svg.js';
 import { makeScene, renderScene } from '../render/court.js';
@@ -12,11 +15,11 @@ import { go, currentView } from '../ui/router.js';
 const HINTS = {
   setup: 'Ziehe die Spieler auf ihre Startpositionen (nur in Schritt 1).',
   ball: 'Tippe den Spieler an, der zu Beginn den Ball hat (nur in Schritt 1).',
-  cut: 'Tippe einen Spieler an, dann die Punkte seines Laufwegs. Abschließen mit „Fertig“ oder den letzten Punkt nochmal antippen.',
+  cut: 'Tippe einen Spieler an, dann die Punkte seines Laufwegs. Abschließen mit „Fertig“ oder den letzten Punkt nochmal antippen. Hat er schon eine Aktion, wird die neue angehängt.',
   dribble: 'Tippe den Ballbesitzer an, dann die Punkte des Dribblings. Abschließen mit „Fertig“.',
-  screen: 'Tippe den blockenden Spieler an, dann den Weg zur Blockposition. Abschließen mit „Fertig“.',
-  pass: 'Tippe den Ballbesitzer an, dann den Empfänger. Der Pass kommt nach den Laufwegen dieses Schritts.',
-  erase: 'Tippe einen Spieler an, um seine Aktion in diesem Schritt zu entfernen.',
+  screen: 'Tippe den blockenden Spieler an, dann den Weg zur Blockposition. Danach z. B. mit „Laufweg“ das Abrollen anhängen.',
+  pass: 'Tippe den Ballbesitzer an, dann den Empfänger. Wann der Pass kommt, legst du rechts unter „Pass spielen“ fest.',
+  erase: 'Tippe einen Spieler an, um seine letzte Aktion in diesem Schritt zu entfernen.',
 };
 
 /** Nächster Spieler im Umkreis eines Punkts, sonst null. */
@@ -78,6 +81,15 @@ export const editor = {
 
     $('#ed-finish').onclick = () => this.finish();
     $('#ed-cancel').onclick = () => this.cancel();
+    $('#ed-beat-dn').onclick = () => this.shiftBeat(-1);
+    $('#ed-beat-up').onclick = () => this.shiftBeat(1);
+    $('#ed-pass-beat').addEventListener('change', e => {
+      const pass = this.play.steps[this.k].pass;
+      if (!pass) return;
+      if (e.target.value === '') delete pass.beat;
+      else pass.beat = Number(e.target.value);
+      this.touch();
+    });
     $('#ed-prev').onclick = () => this.gotoStep(this.k - 1);
     $('#ed-next').onclick = () => this.gotoStep(this.k + 1);
     $('#ed-add').onclick = () => {
@@ -252,14 +264,55 @@ export const editor = {
     $('#ed-next').disabled = this.k >= n - 1;
     if (document.activeElement !== $('#ed-note')) $('#ed-note').value = this.play.steps[this.k].note || '';
     $('#ed-pending').hidden = !this.pending;
+    if (this.pending) {
+      const { min, max } = this.beatRange(this.pending.id);
+      $('#ed-beat').textContent = `Takt ${this.pending.beat + 1}`;
+      $('#ed-beat-dn').disabled = this.pending.beat <= min;
+      $('#ed-beat-up').disabled = this.pending.beat >= max;
+    }
+    this.renderPassBeat();
+  },
+
+  /** Auswahl „Pass spielen“: zuerst, nach Takt b oder nach allen Laufwegen. */
+  renderPassBeat() {
+    const step = this.play.steps[this.k], B = stepBeats(step), row = $('#ed-pass-row');
+    row.hidden = !step.pass || B === 0;
+    if (row.hidden) return;
+    const opts = [];
+    for (let b = 0; b < B; b++) opts.push([b, b === 0 ? 'zuerst, vor den Laufwegen' : `nach Takt ${b}`]);
+    opts.push(['', 'nach allen Laufwegen']);
+    const sel = $('#ed-pass-beat');
+    sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+    sel.value = Number.isInteger(step.pass.beat) ? String(step.pass.beat) : '';
+  },
+
+  /**
+   * Mögliche Start-Takte für eine neue Aktion des Spielers: frühestens nach seiner letzten Aktion,
+   * höchstens ein Takt nach dem bisher letzten des Schritts.
+   */
+  beatRange(id) {
+    const step = this.play.steps[this.k];
+    const min = lastBeatOf(step, id) + 1;
+    return { min, max: Math.max(stepBeats(step), min) };
+  },
+
+  shiftBeat(d) {
+    if (!this.pending) return;
+    const { min, max } = this.beatRange(this.pending.id);
+    this.pending.beat = Math.max(min, Math.min(max, this.pending.beat + d));
+    this.render();
+  },
+
+  /** Startpunkt der Aktion im Entstehen = Ende der vorigen Aktion des Spielers. */
+  pendingStart() {
+    return positionsAt(this.play, this.k, this.pending.beat).players[this.pending.id];
   },
 
   drawDraft() {
     const g = this.scene.draft;
     g.innerHTML = '';
     if (!this.pending) return;
-    const start = stateAt(this.play, this.k).players[this.pending.id];
-    const pts = [start, ...this.pending.points];
+    const pts = [this.pendingStart(), ...this.pending.points];
     if (this.hover) pts.push(this.hover);
     if (pts.length >= 2) el('path', { d: this.smooth ? smoothD(pts) : polyD(pts), class: 'mv draftline' }, g);
     for (const q of this.pending.points) el('circle', { cx: round2(q.x), cy: round2(q.y), r: 0.9, class: 'wp' }, g);
@@ -285,6 +338,9 @@ export const editor = {
     const step = this.play.steps[this.k];
     const t = this.tool;
     const hit = hitTest(st.players, pt);
+    // Spieler am Ende seiner Aktionen in diesem Schritt (ohne Aktion = Startposition)
+    const end = stateAt(this.play, this.k + 1).players;
+    const endHit = hitTest(end, pt) || hit;
 
     if (t === 'setup') {
       if (this.k !== 0) return this.flash('Die Startaufstellung kann nur in Schritt 1 geändert werden.');
@@ -305,26 +361,27 @@ export const editor = {
       if (this.pending) {
         const last = this.pending.points[this.pending.points.length - 1];
         if (last && dist(last, pt) < 2.5) return this.finish();
-        if (hit === this.pending.id && !this.pending.points.length) return this.cancel();
+        if (!this.pending.points.length && dist(this.pendingStart(), pt) < R + 2) return this.cancel();
         this.pending.points.push(clampPoint(pt));
         this.render();
         return;
       }
-      if (!hit) return this.flash('Tippe zuerst auf einen Spieler.');
-      if (t === 'dribble' && st.ball !== hit) return this.flash('Nur der Spieler mit Ball kann dribbeln.');
-      this.pending = { id: hit, type: t, points: [] };
+      if (!endHit) return this.flash('Tippe zuerst auf einen Spieler.');
+      // Neue Aktion wird hinten angehängt: frühestens im Takt nach der letzten des Spielers
+      const { min, max } = this.beatRange(endHit);
+      let beat = min;
+      if (t === 'dribble') {
+        while (beat <= max && positionsAt(this.play, this.k, beat).ball !== endHit) beat++;
+        if (beat > max) return this.flash('Nur der Spieler mit Ball kann dribbeln.');
+      }
+      this.pending = { id: endHit, type: t, points: [], beat };
       this.render();
       return;
     }
 
     if (t === 'pass') {
-      // Pass startet nach den Laufwegen: auch die Endpositionen dieses Schritts zählen als Treffer
-      const endPos = { ...st.players };
-      for (const id in step.moves) {
-        const pts = step.moves[id].points;
-        if (pts.length) endPos[id] = pts[pts.length - 1];
-      }
-      const passHit = hitTest(endPos, pt) || hit;
+      // Auch die Endpositionen dieses Schritts zählen als Treffer
+      const passHit = endHit;
       if (!this.passFrom) {
         if (!passHit) return this.flash('Tippe zuerst den Ballbesitzer an.');
         if (passHit !== st.ball) return this.flash(`Nur der Spieler mit Ball (Nr. ${st.ball}) kann passen.`);
@@ -341,12 +398,19 @@ export const editor = {
     }
 
     if (t === 'erase') {
-      if (!hit) return;
-      let changed = false;
-      if (step.moves[hit]) { delete step.moves[hit]; changed = true; }
-      if (step.pass && (step.pass.from === hit || step.pass.to === hit)) { step.pass = null; changed = true; }
-      if (changed) this.touch();
-      else this.flash('Dieser Spieler hat in diesem Schritt keine Aktion.');
+      if (!endHit) return;
+      // Erst die letzte Aktion des Spielers entfernen, ohne Aktionen dann seinen Pass
+      const last = lastBeatOf(step, endHit);
+      if (last >= 0) {
+        step.actions.splice(step.actions.findIndex(a => a.player === endHit && a.beat === last), 1);
+        this.play.steps[this.k] = tidyStep(step);
+        this.touch();
+      } else if (step.pass && (step.pass.from === endHit || step.pass.to === endHit)) {
+        step.pass = null;
+        this.touch();
+      } else {
+        this.flash('Dieser Spieler hat in diesem Schritt keine Aktion.');
+      }
     }
   },
 
@@ -363,8 +427,13 @@ export const editor = {
   finish() {
     if (!this.pending) return;
     if (!this.pending.points.length) return this.cancel();
-    const { id, type, points } = this.pending;
-    this.play.steps[this.k].moves[id] = { type, points, smooth: this.smooth };
+    const { id, type, points, beat } = this.pending;
+    if (type === 'dribble' && positionsAt(this.play, this.k, beat).ball !== id) {
+      return this.flash(`In Takt ${beat + 1} hat Spieler ${id} nicht den Ball.`);
+    }
+    const step = this.play.steps[this.k];
+    step.actions.push({ player: id, type, points, smooth: this.smooth, beat });
+    this.play.steps[this.k] = tidyStep(step);
     this.pending = null;
     this.hover = null;
     this.touch();

@@ -1,11 +1,13 @@
 // Speicher für Spielzüge. Aktuell localStorage (nur auf diesem Gerät, pro Domain getrennt).
 // Wer auf IndexedDB umstellen will, muss nur diese Datei ändern.
 import { STORAGE_KEY } from '../core/constants.js';
+import { migratePlay } from '../core/migrate.js';
 
 export function loadAll() {
   try {
     const v = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(v) ? v : [];
+    // Alte Spielzüge (Version 1) werden beim Laden umgewandelt
+    return Array.isArray(v) ? v.map(migratePlay) : [];
   } catch (e) {
     return [];
   }

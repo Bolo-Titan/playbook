@@ -3,7 +3,7 @@
 
 export const STORAGE_KEY = 'playbook.spielzuege.v1';
 export const FILE_FORMAT = 'playbook-spielzug';
-export const FILE_VERSION = 1;
+export const FILE_VERSION = 2;
 
 export const CATEGORIES = [
   'Angriff gegen Mann',

@@ -44,7 +44,9 @@ src/
   main.js               Einstieg: Ansichten registrieren, Klicks, Import, Drag & Drop
   core/                 REINE Logik, kein DOM → testbar mit Vitest
     constants.js        Kategorien, Startaufstellung, Zeiten, Feldgrenzen
-    model.js            newPlay, stateAt, clampPoint, describeStep, Helfer
+    model.js            newPlay, stateAt, positionsAt, timeline, tidyStep, describeStep, Helfer
+    migrate.js          migratePlay: alte Spielzüge (Version 1) auf das aktuelle Modell bringen
+    note.js             noteBlocks: Notizen in Absätze und Aufzählungen zerlegen
     geometry.js         polyD, smoothD (Catmull-Rom → Bézier), moveD
   io/
     exchange.js         REIN: Dateiformat, validatePlay, parsePlays, mergePlays, slug
@@ -110,11 +112,12 @@ Grundlinie, Korbmitte bei (75 | 15,75). SVG-`viewBox` ist `-4 -4 158 148` (2 dm 
   },
   steps: [
     {
-      moves: {                    // höchstens eine Aktion pro Spieler und Schritt
-        "4": { type: "screen", points: [{x, y}, ...], smooth: true }
-      },                          // type: "cut" | "dribble" | "screen"
-      pass: { from: "1", to: "2" } | null,
-      note: "Freitext"
+      actions: [                  // type: "cut" | "dribble" | "screen"
+        { player: "4", type: "screen", points: [{x, y}, ...], smooth: true, beat: 0 },
+        { player: "4", type: "cut",    points: [...],         smooth: true, beat: 1 }  // abrollen
+      ],
+      pass: { from: "1", to: "2", beat: 1 } | null,   // beat optional
+      note: "Freitext, Zeilen mit „- “ oder „1. “ werden zur Aufzählung"
     }
   ]
 }
@@ -123,21 +126,31 @@ Grundlinie, Korbmitte bei (75 | 15,75). SVG-`viewBox` ist `-4 -4 158 148` (2 dm 
 Wichtige Prinzipien:
 - **Gespeichert werden nur Startaufstellung und Aktionen.** Positionen in späteren Schritten
   berechnet `stateAt(play, k)` (Zustand zu *Beginn* von Schritt k; `k = steps.length` = Endposition).
-- `points` enthält **nicht** den Startpunkt; der ist die Position des Spielers zu Beginn des Schritts.
-- Ablauf eines Schritts: erst alle Bewegungen gleichzeitig, **danach** der Pass
-  (von den Endpositionen aus).
+- **Takte:** Ein Schritt läuft Takt für Takt (`beat` 0, 1, 2 …, je `TIMING.move`). Alle Aktionen
+  eines Takts laufen gleichzeitig. Pro Spieler und Takt höchstens eine Aktion; mehrere Aktionen
+  eines Spielers liegen in aufsteigenden Takten, eine Lücke = der Spieler wartet (Zeitversatz).
+- `points` enthält **nicht** den Startpunkt; der ist die Position des Spielers zu Beginn des
+  Takts (`positionsAt(play, k, beat)`), also das Ende seiner vorigen Aktion.
+- Der Pass wird **vor** den Laufwegen seines Takts gespielt; ohne `beat` nach allen Laufwegen.
+  Höchstens ein Pass pro Schritt. Die Reihenfolge liefert `timeline(step)`.
+- Nach Löschen/Hinzufügen `tidyStep` anwenden: entfernt leere Takte, der Pass rutscht mit.
 - Bewegung entlang des Pfads nach **zurückgelegter Strecke** (`measurer`), damit Spieler in Kurven
   nicht schneller oder langsamer werden.
 
 ### Dateiformat (Export/Import)
 
 ```json
-{ "format": "playbook-spielzug", "version": 1, "exported": "ISO-Datum", "plays": [ ... ] }
+{ "format": "playbook-spielzug", "version": 2, "exported": "ISO-Datum", "plays": [ ... ] }
 ```
 
-Import akzeptiert auch einen einzelnen Spielzug ohne Hülle. Jede Datei wird mit `validatePlay`
-geprüft. **Bei Änderungen am Modell:** `FILE_VERSION` erhöhen und eine Migration für alte Dateien
-und alte localStorage-Daten einbauen. Spieler haben eventuell noch alte Dateien.
+Import akzeptiert auch einen einzelnen Spielzug ohne Hülle. Jede Datei wird mit `migratePlay`
+umgewandelt und dann mit `validatePlay` geprüft; `loadAll` migriert auch die localStorage-Daten.
+**Bei Änderungen am Modell:** `FILE_VERSION` erhöhen und die Migration in `core/migrate.js`
+erweitern. Spieler haben eventuell noch alte Dateien.
+
+- Version 1: `step.moves = { "4": {type, points, smooth} }`, eine Aktion pro Spieler, alle
+  gleichzeitig → wird zu `actions` mit `beat: 0`.
+- Version 2: `step.actions` mit Takten (aktuell). Ältere App-Versionen können sie nicht lesen.
 
 ## Konventionen
 
@@ -165,7 +178,8 @@ und alte localStorage-Daten einbauen. Spieler haben eventuell noch alte Dateien.
 ## Manueller Testablauf
 
 Vor größeren Änderungen im Browser prüfen (`npm run dev`):
-1. Neuer Spielzug → Aufstellung ziehen → Block für 4 → „+ Schritt“ → Dribbling 1 mit Kurve → Pass 1 → 2
+1. Neuer Spielzug → Aufstellung ziehen → Block für 4 → Laufweg 4 anhängen (Abrollen, Takt 2)
+   → „+ Schritt“ → Dribbling 1 mit Kurve → Pass 1 → 2, „Pass spielen“ umstellen
 2. Vorschau abspielen, Namen vergeben, speichern
 3. Im Viewer abspielen, Geschwindigkeit ändern, Schritt in der Liste anklicken
 4. „Als Datei speichern“, Spielzug löschen, Datei wieder importieren
@@ -178,8 +192,7 @@ Vor größeren Änderungen im Browser prüfen (`npm run dev`):
    Hinweis „Neue Version verfügbar – neu laden?“.
 2. **Speicher absichern:** `navigator.storage.persist()` beim Start anfragen.
 3. **Verteidigung:** optionale Spieler X1–X5 (eigene Farbe), gleiche Aktionen.
-4. **Mehrere Aktionen pro Spieler und Schritt** (z. B. Block stellen und abrollen) bzw.
-   Zeitversatz innerhalb eines Schritts.
+4. **Mehrere Pässe pro Schritt** (`passes: []` mit Takt), z. B. Hand-off oder Swing.
 5. **Ganzfeld** für Schnellangriff und Presse.
 6. **Video-Export** der Animation (MediaRecorder) zum Verschicken.
 7. **IndexedDB** statt localStorage, falls Bilder/Videos an Spielzüge angehängt werden sollen.

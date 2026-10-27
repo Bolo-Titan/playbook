@@ -1,4 +1,8 @@
 // Datenmodell eines Spielzugs. Reine Funktionen ohne DOM – deshalb direkt testbar.
+//
+// Ein Schritt ist in Takte (beat 0, 1, 2 …) unterteilt. Jede Aktion startet in ihrem Takt;
+// Aktionen eines Spielers laufen nacheinander (z. B. Block in Takt 0, Abrollen in Takt 1).
+// Der Pass wird vor den Laufwegen seines Takts gespielt; ohne beat nach allen Laufwegen.
 import { CATEGORIES, DEFAULT_POSITIONS, COURT_LIMITS, ACTION_LABEL } from './constants.js';
 
 export const round2 = n => Math.round(n * 100) / 100;
@@ -15,7 +19,7 @@ export function clampPoint(p) {
   };
 }
 
-export const emptyStep = () => ({ moves: {}, pass: null, note: '' });
+export const emptyStep = () => ({ actions: [], pass: null, note: '' });
 
 export function newPlay() {
   const now = new Date().toISOString();
@@ -31,6 +35,28 @@ export function newPlay() {
   };
 }
 
+/** Aktionen nach Takt sortiert (stabil, Reihenfolge innerhalb eines Takts bleibt). */
+const byBeat = actions => [...actions].sort((a, b) => a.beat - b.beat);
+
+/** Anzahl der Takte mit Laufwegen (0 bei einem Schritt ohne Aktionen). */
+export const stepBeats = step => step.actions.reduce((n, a) => Math.max(n, a.beat + 1), 0);
+
+/** Takt, vor dessen Laufwegen der Pass gespielt wird; null ohne Pass. */
+export function passBeat(step) {
+  if (!step.pass) return null;
+  return Number.isInteger(step.pass.beat) ? step.pass.beat : stepBeats(step);
+}
+
+/** Letzter Takt, in dem der Spieler eine Aktion hat; -1 ohne Aktion. */
+export const lastBeatOf = (step, id) =>
+  step.actions.reduce((n, a) => (a.player === id ? Math.max(n, a.beat) : n), -1);
+
+function applyActions(players, actions, beforeBeat = Infinity) {
+  for (const a of byBeat(actions)) {
+    if (a.beat < beforeBeat && a.points.length && players[a.player]) players[a.player] = { ...a.points[a.points.length - 1] };
+  }
+}
+
 /**
  * Positionen und Ballbesitz zu BEGINN von Schritt k.
  * Gespeichert werden nur Startaufstellung + Aktionen; alles andere wird hier berechnet.
@@ -42,17 +68,68 @@ export function stateAt(play, k) {
   let ball = play.initial.ball;
   for (let i = 0; i < k && i < play.steps.length; i++) {
     const step = play.steps[i];
-    for (const id in step.moves) {
-      const pts = step.moves[id].points;
-      if (pts.length) players[id] = { ...pts[pts.length - 1] };
-    }
+    applyActions(players, step.actions);
     if (step.pass) ball = step.pass.to;
   }
   return { players, ball };
 }
 
+/**
+ * Innerhalb von Schritt k: Positionen zu Beginn von Takt `beat`
+ * und Ballbesitz während der Laufwege dieses Takts (Pass dieses Takts schon gespielt).
+ */
+export function positionsAt(play, k, beat) {
+  const st = stateAt(play, k), step = play.steps[k];
+  if (!step) return st;
+  applyActions(st.players, step.actions, beat);
+  const pb = passBeat(step);
+  return { players: st.players, ball: pb !== null && pb <= beat ? step.pass.to : st.ball };
+}
+
+/**
+ * Ablauf eines Schritts für die Animation:
+ * [{ kind: 'move', beat } | { kind: 'pass', beat }] in zeitlicher Reihenfolge.
+ */
+export function timeline(step) {
+  const B = stepBeats(step), pb = passBeat(step), segs = [];
+  const n = Math.max(B, pb === null ? 0 : pb + 1);
+  for (let b = 0; b < n; b++) {
+    if (b === pb) segs.push({ kind: 'pass', beat: b });
+    if (b < B) segs.push({ kind: 'move', beat: b });
+  }
+  // Leerer Schritt: kurz stehen bleiben, damit man ihn sieht
+  if (!segs.length) segs.push({ kind: 'move', beat: 0 });
+  return segs;
+}
+
+/**
+ * Räumt einen Schritt auf (liefert eine Kopie): Takte ohne Aktion werden entfernt,
+ * der Pass rutscht mit; ein Pass-Takt am Ende entfällt (= nach allen Laufwegen).
+ */
+export function tidyStep(step) {
+  const used = [...new Set(step.actions.map(a => a.beat))].sort((a, b) => a - b);
+  const rank = b => used.filter(u => u < b).length;
+  const actions = byBeat(step.actions).map(a => ({ ...a, beat: rank(a.beat) }));
+  let pass = step.pass;
+  if (pass) {
+    const { beat, ...rest } = pass;
+    pass = Number.isInteger(beat) && rank(beat) < used.length ? { ...rest, beat: rank(beat) } : rest;
+  }
+  return { ...step, actions, pass };
+}
+
 export function describeStep(step) {
-  const parts = Object.entries(step.moves).map(([id, m]) => `${id}: ${ACTION_LABEL[m.type] || m.type}`);
-  if (step.pass) parts.push(`Pass ${step.pass.from} → ${step.pass.to}`);
+  const multi = stepBeats(step) > 1, per = new Map();
+  for (const a of byBeat(step.actions)) {
+    if (!per.has(a.player)) per.set(a.player, { first: a.beat, labels: [] });
+    per.get(a.player).labels.push(ACTION_LABEL[a.type] || a.type);
+  }
+  const parts = [...per].map(([id, p]) =>
+    `${id}: ${p.labels.join(' → ')}${multi && p.first > 0 ? ` (ab Takt ${p.first + 1})` : ''}`);
+  if (step.pass) {
+    const pb = passBeat(step);
+    const when = Number.isInteger(step.pass.beat) && pb < stepBeats(step) ? (pb === 0 ? ' (zuerst)' : ` (nach Takt ${pb})`) : '';
+    parts.push(`Pass ${step.pass.from} → ${step.pass.to}${when}`);
+  }
   return parts.join(' · ') || 'Keine Aktion';
 }

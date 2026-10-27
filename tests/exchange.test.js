@@ -26,9 +26,25 @@ describe('validatePlay', () => {
   it('erkennt gültige und kaputte Spielzüge', () => {
     expect(validatePlay(newPlay())).toBe(true);
     const bad = newPlay();
-    bad.steps[0].moves['1'] = { type: 'cut', points: [{ x: 'a', y: 1 }] };
+    bad.steps[0].actions.push({ player: '1', type: 'cut', points: [{ x: 'a', y: 1 }], beat: 0 });
     expect(validatePlay(bad)).toBe(false);
+    const noBeat = newPlay();
+    noBeat.steps[0].actions.push({ player: '1', type: 'cut', points: [{ x: 1, y: 1 }] });
+    expect(validatePlay(noBeat)).toBe(false);
     expect(validatePlay({ id: 'x', steps: [] })).toBe(false);
+  });
+});
+
+describe('Import alter Dateien', () => {
+  it('nimmt Spielzüge der Version 1 an und wandelt sie um', () => {
+    const old = { ...newPlay(), id: 'alt' };
+    old.steps = [{ moves: { '4': { type: 'screen', points: [{ x: 82, y: 74 }], smooth: true } }, pass: null, note: '' }];
+    const res = mergePlays([], [old]);
+    expect(res.added).toBe(1);
+    expect(res.list[0].steps[0].actions).toEqual([
+      { player: '4', type: 'screen', points: [{ x: 82, y: 74 }], smooth: true, beat: 0 },
+    ]);
+    expect(res.list[0].steps[0].moves).toBeUndefined();
   });
 });
 

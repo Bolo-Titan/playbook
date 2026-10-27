@@ -1,6 +1,6 @@
 // Spielfeld, Spieler, Ball und Aktionslinien zeichnen.
 import { PLAYER_IDS, PLAYER_RADIUS as R } from '../core/constants.js';
-import { round2 as r, dist, stateAt } from '../core/model.js';
+import { round2 as r, dist, stateAt, positionsAt, passBeat, stepBeats } from '../core/model.js';
 import { moveD } from '../core/geometry.js';
 import { el, measurer } from './svg.js';
 
@@ -112,17 +112,31 @@ export function placeBall(scene, p) {
   scene.ball.setAttribute('cy', r(p.y));
 }
 
+/** Kleine Takt-Nummer in der Mitte eines Laufwegs. */
+function drawBeat(g, start, move) {
+  const m = measurer(moveD(start, move));
+  const p = m.at(0.5);
+  m.dispose();
+  el('circle', { cx: r(p.x), cy: r(p.y), r: 2.1, class: 'beat' }, g);
+  el('text', { x: r(p.x), y: r(p.y), class: 'beat-n' }, g).textContent = move.beat + 1;
+}
+
 /** Zeigt Schritt k: Spieler auf ihrer Startposition, Aktionen des Schritts als Linien. */
 export function renderScene(scene, play, k, selected) {
   const st = stateAt(play, k);
   scene.lines.innerHTML = '';
   if (k < play.steps.length) {
-    const step = play.steps[k];
-    for (const id in step.moves) if (st.players[id]) drawMove(scene.lines, st.players[id], step.moves[id]);
+    const step = play.steps[k], multi = stepBeats(step) > 1;
+    for (const act of step.actions) {
+      // Jede Aktion startet dort, wo der Spieler zu Beginn ihres Takts steht
+      const start = positionsAt(play, k, act.beat).players[act.player];
+      if (!start) continue;
+      drawMove(scene.lines, start, act);
+      if (multi) drawBeat(scene.lines, start, act);
+    }
     if (step.pass) {
-      // Pass wird nach den Laufwegen gespielt → von den Endpositionen aus zeichnen
-      const end = stateAt(play, k + 1).players;
-      if (end[step.pass.from] && end[step.pass.to]) drawPass(scene.lines, end[step.pass.from], end[step.pass.to]);
+      const at = positionsAt(play, k, passBeat(step)).players;
+      if (at[step.pass.from] && at[step.pass.to]) drawPass(scene.lines, at[step.pass.from], at[step.pass.to]);
     }
   }
   placePlayers(scene, st.players, selected);

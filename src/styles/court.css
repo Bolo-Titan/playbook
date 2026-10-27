@@ -13,3 +13,5 @@
 .pl.sel circle{stroke:var(--accent);stroke-width:1.3}
 .ball{fill:var(--ball);stroke:#5a1e06;stroke-width:.35}
 .mk{fill:var(--mark)}
+.beat{fill:var(--court);stroke:var(--mark);stroke-width:.4}
+.beat-n{fill:var(--mark);font-size:2.6px;font-weight:700;text-anchor:middle;dominant-baseline:central;font-family:system-ui,sans-serif}
