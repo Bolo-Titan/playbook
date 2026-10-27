@@ -72,9 +72,12 @@ textarea{min-height:64px;resize:vertical}
 .controls select{width:auto;margin:0}
 .step-label{font-weight:800;font-size:1.1rem}
 #vw-steps{padding-left:0;list-style:none;margin:10px 0 0;display:flex;flex-direction:column;gap:4px}
-#vw-steps li{padding:7px 10px;border-radius:8px;cursor:pointer;font-size:.92rem;border:1px solid transparent}
-#vw-steps li.active{background:var(--chip);color:var(--chip-ink);border-color:var(--chip)}
-#vw-steps li b{display:block}
+#vw-steps>li{padding:7px 10px;border-radius:8px;cursor:pointer;font-size:.92rem;border:1px solid transparent}
+#vw-steps>li.active{background:var(--chip);color:var(--chip-ink);border-color:var(--chip)}
+#vw-steps>li>b{display:block}
+.note p,.note ul,.note ol{margin:2px 0}
+.note ul,.note ol{padding-left:1.3em}
+.note li{margin:1px 0}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .filters input{max-width:260px;margin:0}
 .filters select{width:auto;margin:0}

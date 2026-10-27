@@ -1,11 +1,17 @@
 // Ansicht eines Spielzugs: abspielen, Schritte durchgehen, teilen, bearbeiten, löschen.
 import { describeStep } from '../core/model.js';
+import { noteBlocks } from '../core/note.js';
 import { makeScene } from '../render/court.js';
 import { Animator } from '../render/animator.js';
 import { getPlay, removePlay } from '../storage/store.js';
 import { sharePlay, exportPlay } from '../io/files.js';
 import { $, esc, toast } from '../ui/dom.js';
 import { go } from '../ui/router.js';
+
+/** Notiz als HTML: Absätze mit Zeilenumbrüchen, Punkt- und nummerierte Listen. */
+const noteHtml = note => noteBlocks(note).map(b => b.type === 'text'
+  ? `<p>${b.lines.map(esc).join('<br>')}</p>`
+  : `<${b.type}>${b.items.map(i => `<li>${esc(i)}</li>`).join('')}</${b.type}>`).join('');
 
 export const viewer = {
   tab: 'archive',
@@ -46,7 +52,7 @@ export const viewer = {
     ol.innerHTML = '';
     play.steps.forEach((s, i) => {
       const li = document.createElement('li');
-      li.innerHTML = `<b>Schritt ${i + 1}</b>${esc(s.note || '')}
+      li.innerHTML = `<b>Schritt ${i + 1}</b><div class="note">${noteHtml(s.note)}</div>
         <div class="muted" style="font-size:.85rem">${esc(describeStep(s))}</div>`;
       li.onclick = () => this.anim.show(i);
       ol.appendChild(li);
