@@ -97,7 +97,9 @@ markiert den Menüpunkt (`tab`) und ruft `leave()` der alten sowie `enter(params
 ## Datenmodell
 
 Koordinaten: **FIBA-Halbfeld in Dezimetern**, 150 breit × 140 tief, Ursprung oben links an der
-Grundlinie, Korbmitte bei (75 | 15,75). SVG-`viewBox` ist `-4 -4 158 148` (2 dm Rand).
+Grundlinie, Korbmitte bei (75 | 15,75). SVG-`viewBox` ist `-12 -12 174 156`: 12 dm Rand hinter der
+Grundlinie und neben den Seitenlinien (Platz für Einwerfer), 4 dm an der Mittellinie. Koordinaten
+außerhalb 0–150 / 0–140 sind also erlaubt; `COURT_LIMITS` begrenzt sie.
 
 ```js
 {

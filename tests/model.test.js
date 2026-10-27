@@ -63,9 +63,16 @@ describe('stateAt', () => {
 });
 
 describe('clampPoint', () => {
-  it('hält Punkte im Spielfeld und rundet auf 2 Stellen', () => {
-    expect(clampPoint({ x: -10, y: 500 })).toEqual({ x: 2, y: 138 });
+  it('hält Punkte im erlaubten Bereich und rundet auf 2 Stellen', () => {
+    expect(clampPoint({ x: -50, y: 500 })).toEqual({ x: -8, y: 138 });
+    expect(clampPoint({ x: 200, y: -50 })).toEqual({ x: 158, y: -7.5 });
     expect(clampPoint({ x: 10.12345, y: 20.5 })).toEqual({ x: 10.12, y: 20.5 });
+  });
+
+  it('erlaubt Einwerfer hinter der Grundlinie und neben den Seitenlinien', () => {
+    expect(clampPoint({ x: 75, y: -6 })).toEqual({ x: 75, y: -6 });
+    expect(clampPoint({ x: -6, y: 60 })).toEqual({ x: -6, y: 60 });
+    expect(clampPoint({ x: 156, y: 60 })).toEqual({ x: 156, y: 60 });
   });
 });
 

@@ -25,7 +25,8 @@ export const DEFAULT_POSITIONS = {
 };
 
 export const PLAYER_RADIUS = 4.2;
-export const COURT_LIMITS = { minX: 2, maxX: 148, minY: 2, maxY: 138 };
+// Spieler dürfen hinter der Grundlinie und neben den Seitenlinien stehen (Einwurf), nicht hinter der Mittellinie
+export const COURT_LIMITS = { minX: -8, maxX: 158, minY: -7.5, maxY: 138 };
 
 export const ACTION_TYPES = ['cut', 'dribble', 'screen'];
 export const ACTION_LABEL = { cut: 'Laufweg', dribble: 'Dribbling', screen: 'Block' };

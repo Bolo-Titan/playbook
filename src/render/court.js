@@ -5,7 +5,8 @@ import { moveD } from '../core/geometry.js';
 import { el, measurer } from './svg.js';
 
 const COURT = `
-  <rect x="-4" y="-4" width="158" height="148" class="c-bg"/>
+  <rect x="-12" y="-12" width="174" height="156" class="c-out"/>
+  <rect x="0" y="0" width="150" height="140" class="c-bg"/>
   <rect x="50.5" y="0" width="49" height="58" class="c-key"/>
   <g class="c-line">
     <rect x="0" y="0" width="150" height="140"/>
@@ -24,7 +25,8 @@ const COURT = `
  * Feld → lines (Aktionen) → draft (Entwurf im Editor) → players.
  */
 export function makeScene(svg) {
-  svg.setAttribute('viewBox', '-4 -4 158 148');
+  // 1,2 m Rand hinter der Grundlinie und neben den Seitenlinien (Einwerfer), 0,4 m an der Mittellinie
+  svg.setAttribute('viewBox', '-12 -12 174 156');
   svg.innerHTML = COURT + '<g class="lines"></g><g class="draft"></g><g class="players"></g>';
   return {
     svg,
