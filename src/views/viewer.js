@@ -18,7 +18,7 @@ export const viewer = {
     $('#vw-play').onclick = () => (this.anim.playing ? this.anim.show(this.anim.k) : this.anim.play());
     $('#vw-first').onclick = () => this.anim.show(0);
     $('#vw-prev').onclick = () => this.anim.show(this.anim.k - 1);
-    $('#vw-next').onclick = () => this.anim.show(this.anim.k + 1);
+    $('#vw-next').onclick = () => this.anim.playStep();
     $('#vw-speed').onchange = e => { this.anim.speed = Number(e.target.value); };
     $('#vw-share').onclick = () => sharePlay(this.play);
     $('#vw-export').onclick = () => exportPlay(this.play);

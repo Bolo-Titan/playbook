@@ -61,6 +61,24 @@ export class Animator {
     this.onUpdate(this);
   }
 
+  /**
+   * Spielt nur den aktuellen Schritt animiert ab und hält danach an.
+   * holdLastFrame: letztes Bild des Schritts stehen lassen statt den Beginn des nächsten zu zeigen.
+   */
+  async playStep({ holdLastFrame = false } = {}) {
+    const play = this.getPlay();
+    if (this.k >= play.steps.length) return;
+    const tok = ++this.token;
+    this.playing = true;
+    renderScene(this.scene, play, this.k);
+    this.onUpdate(this);
+    if (!(await this.animateStep(play, this.k, tok))) return;
+    this.k++;
+    this.playing = false;
+    if (!holdLastFrame) renderScene(this.scene, play, this.k);
+    this.onUpdate(this);
+  }
+
   animateStep(play, k, tok) {
     return new Promise(resolve => {
       const st = stateAt(play, k), step = play.steps[k], paths = {};

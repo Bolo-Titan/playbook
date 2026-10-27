@@ -41,12 +41,24 @@ export const editor = {
   drag: null,
   dirty: false,
   isEdit: false,
+  stepOnly: false, // läuft gerade „Nur dieser Schritt“?
+  atEnd: false,    // zeigt die Endposition des Schritts statt der Bearbeitungsansicht
 
   init() {
     this.scene = makeScene($('#ed-svg'));
     this.anim = new Animator(this.scene, () => this.play, a => {
       $('#ed-preview').textContent = a.playing ? '⏸ Stopp' : '▶ Vorschau';
-      if (!a.playing) this.render();
+      $('#ed-play-step').textContent = a.playing ? '⏸ Stopp' : '▶ Nur dieser Schritt';
+      if (a.playing) return;
+      // Nach „Nur dieser Schritt“ bleibt die Endposition stehen, bis weiter bearbeitet wird
+      if (this.stepOnly && a.k === this.k + 1) {
+        this.stepOnly = false;
+        this.atEnd = true;
+        this.setHint(`Ende von Schritt ${this.k + 1}. Tippe aufs Spielfeld, um weiter zu bearbeiten.`);
+        return;
+      }
+      this.stepOnly = false;
+      this.render();
     });
     $('#ed-cat').innerHTML = CATEGORIES.map(c => `<option>${esc(c)}</option>`).join('');
 
@@ -91,6 +103,13 @@ export const editor = {
       this.endPending();
       this.anim.k = 0;
       this.anim.play();
+    };
+    $('#ed-play-step').onclick = () => {
+      if (this.anim.playing) return this.anim.stop();
+      this.endPending();
+      this.anim.k = this.k;
+      this.stepOnly = true;
+      this.anim.playStep({ holdLastFrame: true });
     };
     $('#ed-note').addEventListener('input', e => {
       this.play.steps[this.k].note = e.target.value;
@@ -221,6 +240,10 @@ export const editor = {
 
   render() {
     if (!this.play) return;
+    if (this.atEnd) {
+      this.atEnd = false;
+      this.setHint();
+    }
     renderScene(this.scene, this.play, this.k, this.selected());
     this.drawDraft();
     const n = this.play.steps.length;
@@ -256,6 +279,7 @@ export const editor = {
   onDown(e) {
     if (this.anim.playing) { this.anim.stop(); return; }
     e.preventDefault();
+    if (this.atEnd) { this.render(); return; }
     const pt = this.svgPoint(e);
     const st = stateAt(this.play, this.k);
     const step = this.play.steps[this.k];
