@@ -129,6 +129,8 @@ export const editor = {
       $(sel).addEventListener('input', () => { this.dirty = true; });
     }
     $('#ed-save').onclick = () => this.save();
+    // Speichern, dann im Viewer das Video erstellen
+    $('#ed-video').onclick = () => this.save({ video: true });
     $('#ed-discard').onclick = () => this.discard();
 
     document.addEventListener('keydown', e => {
@@ -181,7 +183,8 @@ export const editor = {
     else this.load(newPlay(), false);
   },
 
-  save() {
+  /** Speichert und öffnet den Viewer; params werden an den Viewer durchgereicht (z. B. { video: true }). */
+  save(params = {}) {
     this.endPending();
     const name = $('#ed-name').value.trim();
     if (!name) {
@@ -200,7 +203,7 @@ export const editor = {
     this.dirty = false;
     this.play = null;
     toast('Spielzug gespeichert');
-    go('viewer', { id });
+    go('viewer', { id, ...params });
   },
 
   // ---------- Werkzeuge, Hinweise, Schritte ----------

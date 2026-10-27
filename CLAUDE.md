@@ -47,6 +47,7 @@ src/
     model.js            newPlay, stateAt, positionsAt, stepBeats, passBeat, tidyStep, describeStep
     migrate.js          migratePlay: alte Spielzüge (Version 1) auf das aktuelle Modell bringen
     note.js             noteBlocks: Notizen in Absätze und Aufzählungen zerlegen
+    caption.js          Video: Lesezeit pro Notiz, Zeilenumbruch der Notiz (captionLines)
     geometry.js         polyD, smoothD (Catmull-Rom → Bézier), moveD
   io/
     exchange.js         REIN: Dateiformat, validatePlay, parsePlays, mergePlays, slug
@@ -56,6 +57,7 @@ src/
     svg.js              el(), measurer() (Pfadlänge über getPointAtLength)
     court.js            Spielfeld, Spieler, Ball, Linienarten, renderScene
     animator.js         Klasse Animator: abspielen, pausieren, Schritt wählen
+    video.js            Video-Export: unsichtbares Spielfeld → Canvas → MediaRecorder
   ui/
     dom.js              $, esc, fmtDate, toast
     router.js           register/go/currentView
@@ -178,6 +180,12 @@ erweitern. Spieler haben eventuell noch alte Dateien.
   „Importieren“ tippen und die Datei auswählen.
 - Die Web Share API mit Dateien gibt es nur auf Mobilgeräten und in einigen Desktop-Browsern;
   sonst fällt `sharePlay` auf Download zurück.
+- **Teilen-Menü nur direkt nach einem Tippen:** `navigator.share` braucht eine frische
+  Nutzeraktion. Nach der Video-Aufnahme (dauert so lange wie das Video) ist die abgelaufen →
+  deshalb erst „Als Video teilen“ (Aufnahme), dann „🎬 Video teilen“ (zweites Tippen).
+- **Video nur als MP4:** Chrome, Edge und Safari nehmen MP4 auf. Firefox und Chromium unter Linux
+  können nur WebM (läuft nicht überall) → dort kein Video-Export, sondern ein Hinweis auf andere
+  Browser. Das Video nutzt immer die hellen Farben, unabhängig vom Dark Mode.
 
 ## Manueller Testablauf
 
@@ -189,6 +197,7 @@ Vor größeren Änderungen im Browser prüfen (`npm run dev`):
 4. „Als Datei speichern“, Spielzug löschen, Datei wieder importieren
 5. Bearbeiten, umbenennen, speichern → Übersicht zeigt neuen Namen
 6. Handy-Ansicht (DevTools, 390 px Breite) prüfen
+7. „Als Video teilen“ → Video abspielen: Notizen lesbar, Animation flüssig, Endposition am Schluss
 
 ## Mögliche nächste Schritte
 
@@ -198,6 +207,5 @@ Vor größeren Änderungen im Browser prüfen (`npm run dev`):
 3. **Verteidigung:** optionale Spieler X1–X5 (eigene Farbe), gleiche Aktionen.
 4. **Mehrere Pässe pro Schritt** (`passes: []` mit Takt), z. B. Hand-off oder Swing.
 5. **Ganzfeld** für Schnellangriff und Presse.
-6. **Video-Export** der Animation (MediaRecorder) zum Verschicken.
-7. **IndexedDB** statt localStorage, falls Bilder/Videos an Spielzüge angehängt werden sollen.
-8. **Capacitor**, falls eine echte App für iOS/Android nötig wird (Dateien direkt öffnen).
+6. **IndexedDB** statt localStorage, falls Bilder/Videos an Spielzüge angehängt werden sollen.
+7. **Capacitor**, falls eine echte App für iOS/Android nötig wird (Dateien direkt öffnen).

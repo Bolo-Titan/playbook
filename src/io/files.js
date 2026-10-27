@@ -3,13 +3,34 @@ import { serialize, fileNameFor, parsePlays, mergePlays } from './exchange.js';
 import { loadAll, saveAll } from '../storage/store.js';
 import { toast } from '../ui/dom.js';
 
-export function download(name, text) {
+export function downloadBlob(name, blob) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.href = URL.createObjectURL(blob);
   a.download = name;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+export function download(name, text) {
+  downloadBlob(name, new Blob([text], { type: 'application/json' }));
+}
+
+/**
+ * Video teilen (Handy) oder herunterladen (PC).
+ * Muss direkt aus einem Tippen heraus aufgerufen werden, sonst verweigert der Browser das Teilen-Menü.
+ */
+export async function shareVideo(play, { blob, ext }) {
+  const name = fileNameFor(play).replace(/\.json$/, `.${ext}`);
+  let file = null;
+  try { file = new File([blob], name, { type: blob.type }); } catch (e) { /* alter Browser */ }
+  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: play.name }); }
+    catch (e) { if (e.name !== 'AbortError') downloadBlob(name, blob); }
+  } else {
+    downloadBlob(name, blob);
+    toast('Video gespeichert – jetzt z. B. per WhatsApp verschicken.');
+  }
 }
 
 export function exportPlay(play) {

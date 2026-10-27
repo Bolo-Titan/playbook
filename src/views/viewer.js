@@ -4,7 +4,8 @@ import { noteBlocks } from '../core/note.js';
 import { makeScene } from '../render/court.js';
 import { Animator } from '../render/animator.js';
 import { getPlay, removePlay } from '../storage/store.js';
-import { sharePlay, exportPlay } from '../io/files.js';
+import { sharePlay, exportPlay, shareVideo } from '../io/files.js';
+import { recordPlay, videoFormat } from '../render/video.js';
 import { $, esc, toast } from '../ui/dom.js';
 import { go } from '../ui/router.js';
 
@@ -27,6 +28,8 @@ export const viewer = {
     $('#vw-next').onclick = () => this.anim.playStep();
     $('#vw-speed').onchange = e => { this.anim.speed = Number(e.target.value); };
     $('#vw-share').onclick = () => sharePlay(this.play);
+    // Erst aufnehmen, dann mit einem zweiten Tippen teilen (Teilen-Menü braucht ein frisches Tippen)
+    $('#vw-video').onclick = () => (this.video ? shareVideo(this.play, this.video) : this.recordVideo());
     $('#vw-export').onclick = () => exportPlay(this.play);
     $('#vw-edit').onclick = () => go('editor', { play: this.play, isEdit: true });
     $('#vw-delete').onclick = () => {
@@ -37,7 +40,7 @@ export const viewer = {
     };
   },
 
-  enter({ id }) {
+  enter({ id, video }) {
     const play = getPlay(id);
     if (!play) {
       toast('Spielzug nicht gefunden');
@@ -58,10 +61,46 @@ export const viewer = {
       ol.appendChild(li);
     });
     this.anim.show(0);
+    this.video = null;
+    this.updateVideoButton();
+    if (video) this.recordVideo();
   },
 
   leave() {
     this.anim.stop();
+    if (this.recording) this.recording.abort();
+    this.recording = null;
+  },
+
+  async recordVideo() {
+    if (this.recording) return;
+    if (!videoFormat()) {
+      return toast('Dieser Browser kann keine MP4-Videos erstellen (z. B. Firefox). Bitte Chrome, Edge oder Safari verwenden – oder am Handy.', 7000);
+    }
+    const ctrl = new AbortController();
+    this.recording = ctrl;
+    this.updateVideoButton();
+    try {
+      const video = await recordPlay(this.play, {
+        signal: ctrl.signal,
+        onProgress: (k, n) => { $('#vw-video').textContent = `Video wird erstellt … ${k + 1}/${n}`; },
+      });
+      if (this.recording !== ctrl) return;
+      this.video = video;
+      toast('Video fertig – tippe auf „Video teilen“.');
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('Video konnte nicht erstellt werden: ' + e.message);
+    } finally {
+      if (this.recording === ctrl) this.recording = null;
+      this.updateVideoButton();
+    }
+  },
+
+  updateVideoButton() {
+    const b = $('#vw-video');
+    b.disabled = !!this.recording;
+    if (!this.recording) b.textContent = this.video ? '🎬 Video teilen' : 'Als Video teilen';
+    else b.textContent = 'Video wird erstellt …';
   },
 
   update(a) {

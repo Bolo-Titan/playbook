@@ -9,10 +9,11 @@ export function fmtDate(iso) {
 }
 
 let toastTimer;
-export function toast(msg) {
+/** Kurze Meldung unten; ms = Anzeigedauer (längere Hinweise länger stehen lassen). */
+export function toast(msg, ms = 2800) {
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
