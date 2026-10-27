@@ -8,6 +8,7 @@ export const FILE_VERSION = 2;
 export const CATEGORIES = [
   'Angriff gegen Mann',
   'Angriff gegen Zone',
+  'Angriff gegen Mann/Zone',
   'Einwurf Seite',
   'Einwurf Grundlinie',
   'Schnellangriff',
