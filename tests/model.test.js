@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   newPlay, stateAt, clampPoint, describeStep,
-  stepBeats, passBeat, lastBeatOf, positionsAt, timeline, tidyStep,
+  actionBeats, stepBeats, passBeat, showBeats, lastBeatOf, positionsAt, tidyStep,
 } from '../src/core/model.js';
 import { DEFAULT_POSITIONS } from '../src/core/constants.js';
 
@@ -82,24 +82,29 @@ describe('describeStep', () => {
     expect(describeStep({ actions: [], pass: null })).toBe('Keine Aktion');
   });
 
-  it('zeigt mehrere Aktionen eines Spielers und verzögerte Starts', () => {
-    expect(describeStep(beatPlay().steps[0])).toBe('4: Block → Laufweg · 2: Laufweg (ab Takt 2) · Pass 1 → 4');
+  it('zeigt mehrere Aktionen eines Spielers, verzögerte Starts und den Pass-Takt', () => {
+    expect(describeStep(beatPlay().steps[0])).toBe('4: Block → Laufweg · 2: Laufweg (ab Takt 2) · Pass 1 → 4 (Takt 3)');
   });
 
   it('nennt einen Pass mitten im Schritt', () => {
     const step = beatPlay().steps[0];
     step.pass.beat = 0;
-    expect(describeStep(step)).toMatch(/Pass 1 → 4 \(zuerst\)$/);
+    expect(describeStep(step)).toMatch(/Pass 1 → 4 \(Takt 1\)$/);
     step.pass.beat = 1;
-    expect(describeStep(step)).toMatch(/Pass 1 → 4 \(nach Takt 1\)$/);
+    expect(describeStep(step)).toMatch(/Pass 1 → 4 \(Takt 2\)$/);
   });
 });
 
 describe('Takte', () => {
   it('zählt Takte, Pass-Takt und letzten Takt eines Spielers', () => {
     const step = beatPlay().steps[0];
+    expect(actionBeats(step)).toBe(2);
+    expect(passBeat(step)).toBe(2);   // ohne beat: eigener Takt nach allen Laufwegen
+    expect(stepBeats(step)).toBe(3);
+    step.pass.beat = 1;
     expect(stepBeats(step)).toBe(2);
-    expect(passBeat(step)).toBe(2);
+    step.pass.beat = 4;
+    expect(stepBeats(step)).toBe(5);
     expect(lastBeatOf(step, '4')).toBe(1);
     expect(lastBeatOf(step, '3')).toBe(-1);
     expect(stepBeats({ actions: [], pass: null })).toBe(0);
@@ -121,40 +126,41 @@ describe('Takte', () => {
     expect(positionsAt(p, 0, 2).players['4']).toEqual({ x: 60, y: 30 });
   });
 
-  it('positionsAt kennt den Ballbesitz während eines Takts', () => {
+  it('positionsAt kennt den Ballbesitz zu Beginn eines Takts', () => {
     const p = beatPlay();
-    expect(positionsAt(p, 0, 1).ball).toBe('1');
+    expect(positionsAt(p, 0, 2).ball).toBe('1');  // Pass läuft in Takt 3 (Index 2)
+    expect(positionsAt(p, 0, 3).ball).toBe('4');
     p.steps[0].pass.beat = 1;
-    expect(positionsAt(p, 0, 0).ball).toBe('1');
-    expect(positionsAt(p, 0, 1).ball).toBe('4');
+    expect(positionsAt(p, 0, 1).ball).toBe('1');
+    expect(positionsAt(p, 0, 2).ball).toBe('4');
   });
 
-  it('timeline spielt den Pass vor den Laufwegen seines Takts', () => {
-    const step = beatPlay().steps[0];
-    expect(timeline(step)).toEqual([
-      { kind: 'move', beat: 0 }, { kind: 'move', beat: 1 }, { kind: 'pass', beat: 2 },
-    ]);
-    step.pass.beat = 1;
-    expect(timeline(step)).toEqual([
-      { kind: 'move', beat: 0 }, { kind: 'pass', beat: 1 }, { kind: 'move', beat: 1 },
-    ]);
-    expect(timeline({ actions: [], pass: null })).toEqual([{ kind: 'move', beat: 0 }]);
+  it('showBeats nur, wenn der Ablauf vom klassischen Fall abweicht', () => {
+    expect(showBeats(samplePlay().steps[1])).toBe(false);        // Dribbling, danach Pass
+    expect(showBeats({ actions: [], pass: { from: '1', to: '2' } })).toBe(false);
+    expect(showBeats(beatPlay().steps[0])).toBe(true);           // zwei Takte Laufwege
+    const step = samplePlay().steps[1];
+    step.pass.beat = 0;                                          // Pass gleichzeitig mit Dribbling
+    expect(showBeats(step)).toBe(true);
   });
 
-  it('tidyStep entfernt leere Takte und lässt den Pass mitrutschen', () => {
+  it('tidyStep entfernt leere Takte, Aktionen und Pass rücken nach', () => {
     const step = {
       actions: [act('4', 'cut', [{ x: 1, y: 1 }], 3), act('2', 'cut', [{ x: 2, y: 2 }], 1)],
       pass: { from: '1', to: '2', beat: 2 },
       note: '',
     };
     const t = tidyStep(step);
-    expect(t.actions.map(a => [a.player, a.beat])).toEqual([['2', 0], ['4', 1]]);
+    expect(t.actions.map(a => [a.player, a.beat])).toEqual([['2', 0], ['4', 2]]);
     expect(t.pass).toEqual({ from: '1', to: '2', beat: 1 });
     expect(step.actions[0].beat).toBe(3); // Original unverändert
   });
 
-  it('tidyStep macht aus einem Pass-Takt am Ende „nach allen Laufwegen“', () => {
+  it('tidyStep behält einen eigenen Pass-Takt und lässt Pässe ohne Takt in Ruhe', () => {
     const t = tidyStep({ actions: [act('2', 'cut', [{ x: 2, y: 2 }], 0)], pass: { from: '1', to: '2', beat: 1 }, note: '' });
-    expect(t.pass).toEqual({ from: '1', to: '2' });
+    expect(t.pass).toEqual({ from: '1', to: '2', beat: 1 });
+    const u = tidyStep({ actions: [act('2', 'cut', [{ x: 2, y: 2 }], 2)], pass: { from: '1', to: '2' }, note: '' });
+    expect(u.actions[0].beat).toBe(0);
+    expect(u.pass).toEqual({ from: '1', to: '2' });
   });
 });

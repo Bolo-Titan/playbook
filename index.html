@@ -69,7 +69,7 @@
         <svg id="ed-svg" class="court-svg editable"></svg>
         <div class="hint" id="ed-hint"></div>
         <div class="pending" id="ed-pending" hidden>
-          <span>Weitere Punkte antippen …</span>
+          <span id="ed-pending-text">Weitere Punkte antippen …</span>
           <span class="beat-pick">Start
             <button class="btn sm" id="ed-beat-dn" aria-label="Früher starten">◀</button>
             <b id="ed-beat">Takt 1</b>
@@ -92,9 +92,6 @@
             <button class="btn sm" id="ed-preview">▶ Vorschau</button>
             <button class="btn sm" id="ed-play-step">▶ Nur dieser Schritt</button>
           </div>
-          <label id="ed-pass-row" hidden>Pass spielen
-            <select id="ed-pass-beat"></select>
-          </label>
           <label>Notiz zu diesem Schritt
             <textarea id="ed-note" rows="5" placeholder="z. B. 4 stellt Block für 1.&#10;Optionen für 1:&#10;- Zum Korb ziehen&#10;- Pass auf abrollende 4"></textarea>
           </label>

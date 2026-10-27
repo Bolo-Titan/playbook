@@ -1,6 +1,6 @@
 // Spielfeld, Spieler, Ball und Aktionslinien zeichnen.
 import { PLAYER_IDS, PLAYER_RADIUS as R } from '../core/constants.js';
-import { round2 as r, dist, stateAt, positionsAt, passBeat, stepBeats } from '../core/model.js';
+import { round2 as r, dist, stateAt, positionsAt, passBeat, showBeats } from '../core/model.js';
 import { moveD } from '../core/geometry.js';
 import { el, measurer } from './svg.js';
 
@@ -114,13 +114,18 @@ export function placeBall(scene, p) {
   scene.ball.setAttribute('cy', r(p.y));
 }
 
-/** Kleine Takt-Nummer in der Mitte eines Laufwegs. */
-function drawBeat(g, start, move) {
+/** Kleine Takt-Nummer (beat + 1) an Punkt p. */
+function drawBeat(g, p, beat) {
+  el('circle', { cx: r(p.x), cy: r(p.y), r: 2.1, class: 'beat' }, g);
+  el('text', { x: r(p.x), y: r(p.y), class: 'beat-n' }, g).textContent = beat + 1;
+}
+
+/** Mitte eines Laufwegs. */
+function midOf(start, move) {
   const m = measurer(moveD(start, move));
   const p = m.at(0.5);
   m.dispose();
-  el('circle', { cx: r(p.x), cy: r(p.y), r: 2.1, class: 'beat' }, g);
-  el('text', { x: r(p.x), y: r(p.y), class: 'beat-n' }, g).textContent = move.beat + 1;
+  return p;
 }
 
 /** Zeigt Schritt k: Spieler auf ihrer Startposition, Aktionen des Schritts als Linien. */
@@ -128,17 +133,22 @@ export function renderScene(scene, play, k, selected) {
   const st = stateAt(play, k);
   scene.lines.innerHTML = '';
   if (k < play.steps.length) {
-    const step = play.steps[k], multi = stepBeats(step) > 1;
+    const step = play.steps[k], multi = showBeats(step);
     for (const act of step.actions) {
       // Jede Aktion startet dort, wo der Spieler zu Beginn ihres Takts steht
       const start = positionsAt(play, k, act.beat).players[act.player];
       if (!start) continue;
       drawMove(scene.lines, start, act);
-      if (multi) drawBeat(scene.lines, start, act);
+      if (multi) drawBeat(scene.lines, midOf(start, act), act.beat);
     }
     if (step.pass) {
-      const at = positionsAt(play, k, passBeat(step)).players;
-      if (at[step.pass.from] && at[step.pass.to]) drawPass(scene.lines, at[step.pass.from], at[step.pass.to]);
+      // Vom Passgeber zu Beginn des Takts zum Empfänger am Ende des Takts (läuft er, dorthin)
+      const pb = passBeat(step);
+      const a = positionsAt(play, k, pb).players[step.pass.from], b = positionsAt(play, k, pb + 1).players[step.pass.to];
+      if (a && b) {
+        drawPass(scene.lines, a, b);
+        if (multi) drawBeat(scene.lines, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, pb);
+      }
     }
   }
   placePlayers(scene, st.players, selected);

@@ -1,7 +1,7 @@
 // Spielt einen Spielzug Schritt für Schritt ab.
-// Pro Schritt Takt für Takt: alle Laufwege eines Takts gleichzeitig, der Pass in seinem Takt.
+// Pro Schritt Takt für Takt: alle Laufwege eines Takts und ggf. der Pass gleichzeitig.
 import { TIMING } from '../core/constants.js';
-import { ease, positionsAt, timeline } from '../core/model.js';
+import { ease, positionsAt, passBeat, stepBeats } from '../core/model.js';
 import { moveD } from '../core/geometry.js';
 import { measurer } from './svg.js';
 import { renderScene, placePlayers, placeBall, ballOffset } from './court.js';
@@ -79,43 +79,46 @@ export class Animator {
     this.onUpdate(this);
   }
 
-  /** Spielt Schritt k Takt für Takt ab (siehe timeline). Liefert false bei Abbruch. */
+  /** Spielt Schritt k Takt für Takt ab: Laufwege und Pass eines Takts gleichzeitig. Liefert false bei Abbruch. */
   async animateStep(play, k, tok) {
-    const step = play.steps[k];
-    for (const seg of timeline(step)) {
-      const { players, ball } = positionsAt(play, k, seg.beat);
-      let ok;
-      if (seg.kind === 'pass') {
-        const a = ballOffset(players[step.pass.from]), b = ballOffset(players[step.pass.to]);
-        ok = await this.tween(TIMING.pass / this.speed, tok, u => {
-          placeBall(this.scene, { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
-        });
-      } else {
-        const paths = {};
-        for (const act of step.actions) {
-          if (act.beat === seg.beat && players[act.player]) paths[act.player] = measurer(moveD(players[act.player], act));
-        }
-        ok = await this.tween(TIMING.move / this.speed, tok, u => {
-          const pos = {};
-          for (const id in players) pos[id] = paths[id] ? paths[id].at(u) : players[id];
-          placePlayers(this.scene, pos);
-          if (pos[ball]) placeBall(this.scene, ballOffset(pos[ball]));
-        });
-        for (const id in paths) paths[id].dispose();
+    const step = play.steps[k], pb = passBeat(step);
+    // Leerer Schritt: einen Takt stehen bleiben, damit man ihn sieht
+    for (let b = 0; b < Math.max(1, stepBeats(step)); b++) {
+      const { players, ball } = positionsAt(play, k, b);
+      const paths = {};
+      for (const act of step.actions) {
+        if (act.beat === b && players[act.player]) paths[act.player] = measurer(moveD(players[act.player], act));
       }
+      const moving = Object.keys(paths).length > 0, pass = pb === b ? step.pass : null;
+      const D = (moving || !pass ? TIMING.move : TIMING.pass) / this.speed;
+      // Läuft der Empfänger in diesem Takt, fliegt der Ball den ganzen Takt mit ihm mit
+      const P = pass && !paths[pass.to] ? Math.min(D, TIMING.pass / this.speed) : D;
+      const from = pass && players[pass.from] ? ballOffset(players[pass.from]) : null;
+      const ok = await this.tween(D, tok, t => {
+        const u = ease(t), pos = {};
+        for (const id in players) pos[id] = paths[id] ? paths[id].at(u) : players[id];
+        placePlayers(this.scene, pos);
+        if (from && pos[pass.to]) {
+          const v = ease(Math.min(1, (t * D) / P)), to = ballOffset(pos[pass.to]);
+          placeBall(this.scene, { x: from.x + (to.x - from.x) * v, y: from.y + (to.y - from.y) * v });
+        } else if (pos[ball]) {
+          placeBall(this.scene, ballOffset(pos[ball]));
+        }
+      });
+      for (const id in paths) paths[id].dispose();
       if (!ok) return false;
     }
     return true;
   }
 
-  /** Ruft draw(u) mit u = 0…1 (geglättet) über dur ms auf. Liefert false bei Abbruch. */
+  /** Ruft draw(t) mit t = 0…1 (linear) über dur ms auf. Liefert false bei Abbruch. */
   tween(dur, tok, draw) {
     return new Promise(resolve => {
       const t0 = performance.now();
       const frame = now => {
         if (tok !== this.token) return resolve(false);
         const t = Math.min(1, (now - t0) / dur);
-        draw(ease(t));
+        draw(t);
         if (t >= 1) return resolve(true);
         requestAnimationFrame(frame);
       };

@@ -44,7 +44,7 @@ src/
   main.js               Einstieg: Ansichten registrieren, Klicks, Import, Drag & Drop
   core/                 REINE Logik, kein DOM → testbar mit Vitest
     constants.js        Kategorien, Startaufstellung, Zeiten, Feldgrenzen
-    model.js            newPlay, stateAt, positionsAt, timeline, tidyStep, describeStep, Helfer
+    model.js            newPlay, stateAt, positionsAt, stepBeats, passBeat, tidyStep, describeStep
     migrate.js          migratePlay: alte Spielzüge (Version 1) auf das aktuelle Modell bringen
     note.js             noteBlocks: Notizen in Absätze und Aufzählungen zerlegen
     geometry.js         polyD, smoothD (Catmull-Rom → Bézier), moveD
@@ -133,9 +133,11 @@ Wichtige Prinzipien:
   eines Spielers liegen in aufsteigenden Takten, eine Lücke = der Spieler wartet (Zeitversatz).
 - `points` enthält **nicht** den Startpunkt; der ist die Position des Spielers zu Beginn des
   Takts (`positionsAt(play, k, beat)`), also das Ende seiner vorigen Aktion.
-- Der Pass wird **vor** den Laufwegen seines Takts gespielt; ohne `beat` nach allen Laufwegen.
-  Höchstens ein Pass pro Schritt. Die Reihenfolge liefert `timeline(step)`.
-- Nach Löschen/Hinzufügen `tidyStep` anwenden: entfernt leere Takte, der Pass rutscht mit.
+- Der Pass liegt in einem Takt wie eine Aktion und läuft **gleichzeitig** mit dessen Laufwegen
+  („Pass und schneiden“), vom Passgeber zu Beginn des Takts zum Empfänger am Ende des Takts.
+  Ohne `beat` (alte Dateien) bekommt er einen eigenen Takt nach allen Laufwegen.
+  Höchstens ein Pass pro Schritt. Im Pass-Takt dribbelt niemand.
+- Nach Löschen/Hinzufügen `tidyStep` anwenden: entfernt leere Takte, Aktionen und Pass rücken nach.
 - Bewegung entlang des Pfads nach **zurückgelegter Strecke** (`measurer`), damit Spieler in Kurven
   nicht schneller oder langsamer werden.
 
@@ -181,7 +183,7 @@ erweitern. Spieler haben eventuell noch alte Dateien.
 
 Vor größeren Änderungen im Browser prüfen (`npm run dev`):
 1. Neuer Spielzug → Aufstellung ziehen → Block für 4 → Laufweg 4 anhängen (Abrollen, Takt 2)
-   → „+ Schritt“ → Dribbling 1 mit Kurve → Pass 1 → 2, „Pass spielen“ umstellen
+   → „+ Schritt“ → Dribbling 1 (Takt 1) → Pass 1 → 2 (Takt 2) → Laufweg 3 (Takt 3)
 2. Vorschau abspielen, Namen vergeben, speichern
 3. Im Viewer abspielen, Geschwindigkeit ändern, Schritt in der Liste anklicken
 4. „Als Datei speichern“, Spielzug löschen, Datei wieder importieren
