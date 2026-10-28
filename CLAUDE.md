@@ -45,6 +45,7 @@ src/
   core/                 REINE Logik, kein DOM → testbar mit Vitest
     constants.js        Kategorien, Startaufstellung, Zeiten, Feldgrenzen
     model.js            newPlay, stateAt, positionsAt, stepBeats, passBeat, tidyStep, describeStep
+    category.js         Oberkategorien (Spielzüge/Einwurfsysteme): matchesFilter, countByGroup
     migrate.js          migratePlay: alte Spielzüge (Version 1) auf das aktuelle Modell bringen
     note.js             noteBlocks: Notizen in Absätze und Aufzählungen zerlegen
     caption.js          Video: Lesezeit pro Notiz, Zeilenumbruch der Notiz (captionLines)

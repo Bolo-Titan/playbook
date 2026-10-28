@@ -15,6 +15,17 @@ export const CATEGORIES = [
   'Sonstiges',
 ];
 
+// Oberkategorien für den Archiv-Filter; „Sonstiges“ gehört zu keiner und erscheint nur unter „Alle“
+export const CATEGORY_GROUPS = {
+  'Spielzüge': ['Angriff gegen Mann', 'Angriff gegen Zone', 'Angriff gegen Mann/Zone', 'Schnellangriff'],
+  'Einwurfsysteme': ['Einwurf Seite', 'Einwurf Grundlinie'],
+};
+
+// Kategorien, die beim Filtern zusätzlich unter anderen Kategorien erscheinen
+export const CATEGORY_ALSO = {
+  'Angriff gegen Mann/Zone': ['Angriff gegen Mann', 'Angriff gegen Zone'],
+};
+
 export const PLAYER_IDS = ['1', '2', '3', '4', '5'];
 
 export const DEFAULT_POSITIONS = {

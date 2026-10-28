@@ -1,17 +1,19 @@
 // Übersicht: Kennzahlen + zuletzt bearbeitete Spielzüge.
+import { countByGroup } from '../core/category.js';
 import { loadAll } from '../storage/store.js';
-import { $, fmtDate } from '../ui/dom.js';
+import { $, esc, fmtDate } from '../ui/dom.js';
 import { playCard } from './playCard.js';
 
 export const dashboard = {
   enter() {
     const list = loadAll();
-    const categories = new Set(list.map(p => p.category));
+    const groups = Object.entries(countByGroup(list))
+      .map(([g, n]) => `<div class="card stat"><b>${n}</b><span>${esc(g)}</span></div>`).join('');
     const latest = list.reduce((a, p) => (!a || p.updated > a ? p.updated : a), null);
 
     $('#db-stats').innerHTML = `
-      <div class="card stat"><b>${list.length}</b><span>Spielzüge im Archiv</span></div>
-      <div class="card stat"><b>${categories.size}</b><span>Kategorien</span></div>
+      <div class="card stat"><b>${list.length}</b><span>Im Archiv</span></div>
+      ${groups}
       <div class="card stat"><b>${latest ? fmtDate(latest) : '–'}</b><span>Letzte Änderung</span></div>`;
 
     const box = $('#db-recent');
