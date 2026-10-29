@@ -27,6 +27,18 @@ export const viewer = {
     $('#vw-prev').onclick = () => this.anim.show(this.anim.k - 1);
     $('#vw-next').onclick = () => this.anim.playStep();
     $('#vw-speed').onchange = e => { this.anim.speed = Number(e.target.value); };
+
+    // ⋯-Menü (nur am Handy sichtbar): schließt nach einer Aktion und beim Tippen daneben.
+    // Beim Video bleibt es offen, damit man den Fortschritt und danach „Video teilen“ sieht.
+    $('#vw-more').onclick = () => this.toggleMenu();
+    $('#vw-actions').addEventListener('click', e => {
+      if (e.target.closest('.btn') && e.target.id !== 'vw-video') this.toggleMenu(false);
+    });
+    document.addEventListener('pointerdown', e => {
+      if (!e.target.closest('#vw-menu')) this.toggleMenu(false);
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') this.toggleMenu(false); });
+
     $('#vw-share').onclick = () => sharePlay(this.play);
     // Erst aufnehmen, dann mit einem zweiten Tippen teilen (Teilen-Menü braucht ein frisches Tippen)
     $('#vw-video').onclick = () => (this.video ? shareVideo(this.play, this.video) : this.recordVideo());
@@ -60,6 +72,7 @@ export const viewer = {
       li.onclick = () => this.anim.show(i);
       ol.appendChild(li);
     });
+    this.nowK = null;
     this.anim.show(0);
     this.video = null;
     this.updateVideoButton();
@@ -67,6 +80,7 @@ export const viewer = {
   },
 
   leave() {
+    this.toggleMenu(false);
     this.anim.stop();
     if (this.recording) this.recording.abort();
     this.recording = null;
@@ -96,6 +110,11 @@ export const viewer = {
     }
   },
 
+  toggleMenu(open = !$('#vw-menu').classList.contains('open')) {
+    $('#vw-menu').classList.toggle('open', open);
+    $('#vw-more').setAttribute('aria-expanded', String(open));
+  },
+
   updateVideoButton() {
     const b = $('#vw-video');
     b.disabled = !!this.recording;
@@ -110,5 +129,17 @@ export const viewer = {
     $('#vw-prev').disabled = a.k === 0;
     $('#vw-next').disabled = a.k >= n;
     [...$('#vw-steps').children].forEach((li, i) => li.classList.toggle('active', i === a.k));
+    this.updateNow(a.k);
+  },
+
+  /** Notiz des aktuellen Schritts unter dem Feld (am Handy, damit man nicht scrollen muss). */
+  updateNow(k) {
+    if (k === this.nowK) return;
+    this.nowK = k;
+    const s = this.play.steps[k];
+    $('#vw-now').innerHTML = s
+      ? `<b>Schritt ${k + 1}</b><div class="note">${noteHtml(s.note)}</div>
+        <div style="font-size:.85rem;opacity:.8">${esc(describeStep(s))}</div>`
+      : '';
   },
 };

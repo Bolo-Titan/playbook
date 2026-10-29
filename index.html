@@ -137,12 +137,15 @@
         <h2 id="vw-title"></h2>
         <p class="muted" id="vw-desc" style="margin:0"></p>
       </div>
-      <div class="row wrap">
-        <button class="btn primary" id="vw-share">Teilen</button>
-        <button class="btn" id="vw-video">Als Video teilen</button>
-        <button class="btn" id="vw-export">Als Datei speichern</button>
-        <button class="btn ghost" id="vw-edit">Bearbeiten</button>
-        <button class="btn ghost danger" id="vw-delete">Löschen</button>
+      <div class="vw-menu" id="vw-menu">
+        <button class="btn vw-more" id="vw-more" aria-label="Weitere Aktionen" aria-expanded="false" aria-controls="vw-actions">⋯</button>
+        <div class="row wrap vw-actions" id="vw-actions">
+          <button class="btn primary" id="vw-share">Teilen</button>
+          <button class="btn" id="vw-video">Als Video teilen</button>
+          <button class="btn" id="vw-export">Als Datei speichern</button>
+          <button class="btn ghost" id="vw-edit">Bearbeiten</button>
+          <button class="btn ghost danger" id="vw-delete">Löschen</button>
+        </div>
       </div>
     </div>
     <div class="vw-grid">
@@ -158,6 +161,7 @@
             <option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
           </select>
         </div>
+        <div class="card vw-now" id="vw-now" aria-live="polite"></div>
       </div>
       <div class="card">
         <div class="step-label" id="vw-step"></div>
