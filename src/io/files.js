@@ -1,5 +1,6 @@
 // Datei-Ein-/Ausgabe im Browser: Herunterladen, Teilen-Menü, Importieren.
 import { serialize, fileNameFor, parsePlays, mergePlays } from './exchange.js';
+import { TEAM_FILE } from '../core/constants.js';
 import { loadAll, saveAll } from '../storage/store.js';
 import { toast } from '../ui/dom.js';
 
@@ -66,4 +67,20 @@ export async function importFiles(files) {
   const res = mergePlays(loadAll(), incoming);
   if (res.added + res.updated) saveAll(res.list);
   return { added: res.added, updated: res.updated, failed: res.failed + unreadable, lastId: res.lastId };
+}
+
+/**
+ * Lädt die veröffentlichte Mannschaftsdatei (public/spielzuege.json) und übernimmt neue
+ * und neuere Spielzüge. Offline oder ohne Datei passiert einfach nichts (null).
+ */
+export async function importTeamPlays() {
+  try {
+    const r = await fetch(import.meta.env.BASE_URL + TEAM_FILE, { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const res = mergePlays(loadAll(), parsePlays(await r.text()), { onlyNewer: true });
+    if (res.added + res.updated) saveAll(res.list);
+    return res;
+  } catch (e) {
+    return null;
+  }
 }

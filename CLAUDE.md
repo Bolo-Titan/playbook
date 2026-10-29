@@ -9,6 +9,9 @@ animiert abspielen und als Datei an die Mannschaft verteilen.
 - **Spieler** importieren die Datei und schauen sich die Animation im Archiv an.
 - **Alles bleibt lokal auf dem Gerät.** Kein Server, kein Login, keine Cloud-Datenbank.
   Die gehostete Seite (GitHub Pages) liefert nur das Programm aus, nicht die Daten.
+  Ausnahme: **`public/spielzuege.json`** (Mannschafts-Spielzüge, öffentlich) wird mit ausgeliefert
+  und beim Start geladen (`importTeamPlays`): neue Spielzüge kommen dazu, vorhandene werden nur
+  ersetzt, wenn `updated` in der Datei neuer ist. Veröffentlichen = Datei ersetzen und pushen.
 
 Die Zielgruppe nutzt die App überwiegend auf dem **Handy** (Touch), der Trainer auch am PC.
 

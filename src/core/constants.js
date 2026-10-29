@@ -4,6 +4,8 @@
 export const STORAGE_KEY = 'playbook.spielzuege.v1';
 export const FILE_FORMAT = 'playbook-spielzug';
 export const FILE_VERSION = 2;
+/** Mannschaftsdatei in public/, wird mit der Seite ausgeliefert und beim Start geladen. */
+export const TEAM_FILE = 'spielzuege.json';
 
 export const CATEGORIES = [
   'Angriff gegen Mann',

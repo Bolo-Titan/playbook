@@ -70,17 +70,23 @@ export function parsePlays(text) {
   throw new Error('Kein Spielzug');
 }
 
+/** true, wenn a später geändert wurde als b (fehlendes Datum zählt als uralt). */
+const isNewer = (a, b) => (Date.parse(a.updated) || 0) > (Date.parse(b.updated) || 0);
+
 /**
  * Führt importierte Spielzüge in eine bestehende Liste ein.
  * Gleiche id → ersetzt die vorhandene Version (so kommen Updates vom Trainer an).
+ * Mit `onlyNewer` nur dann, wenn die neue Version ein späteres `updated` hat
+ * (Mannschaftsdatei beim Start: lokale, noch nicht veröffentlichte Änderungen bleiben erhalten).
  */
-export function mergePlays(list, incoming) {
+export function mergePlays(list, incoming, { onlyNewer = false } = {}) {
   const result = { list: [...list], added: 0, updated: 0, failed: 0, lastId: null };
   for (const raw of incoming) {
     const migrated = migratePlay(raw);
     if (!validatePlay(migrated)) { result.failed++; continue; }
     const p = normalize(migrated);
     const i = result.list.findIndex(x => x.id === p.id);
+    if (i >= 0 && onlyNewer && !isNewer(p, result.list[i])) continue;
     if (i >= 0) { result.list[i] = p; result.updated++; }
     else { result.list.unshift(p); result.added++; }
     result.lastId = p.id;

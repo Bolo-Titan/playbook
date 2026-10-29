@@ -60,6 +60,21 @@ describe('mergePlays', () => {
     expect(res.list.find(p => p.id === 'a').name).toBe('Neu');
     expect(res.list).toHaveLength(2);
   });
+
+  it('ersetzt mit onlyNewer nur, wenn die neue Version später geändert wurde', () => {
+    const lokal = { ...newPlay(), id: 'a', name: 'Lokal', updated: '2026-10-29T10:00:00.000Z' };
+    const aelter = { ...lokal, name: 'Älter', updated: '2026-10-28T10:00:00.000Z' };
+    const gleich = { ...lokal, name: 'Gleich' };
+    const neuer = { ...lokal, name: 'Neuer', updated: '2026-10-30T10:00:00.000Z' };
+
+    const res = mergePlays([lokal], [aelter, gleich], { onlyNewer: true });
+    expect(res.updated).toBe(0);
+    expect(res.list[0].name).toBe('Lokal');
+
+    const res2 = mergePlays([lokal], [neuer], { onlyNewer: true });
+    expect(res2.updated).toBe(1);
+    expect(res2.list[0].name).toBe('Neuer');
+  });
 });
 
 describe('slug', () => {

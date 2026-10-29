@@ -4,7 +4,7 @@ import './styles/court.css';
 
 import { register, go, currentView } from './ui/router.js';
 import { $, toast } from './ui/dom.js';
-import { importFiles } from './io/files.js';
+import { importFiles, importTeamPlays } from './io/files.js';
 import { dashboard } from './views/dashboard.js';
 import { archive } from './views/archive.js';
 import { viewer } from './views/viewer.js';
@@ -65,3 +65,13 @@ window.addEventListener('drop', e => {
 });
 
 go('dash');
+
+// Veröffentlichte Mannschafts-Spielzüge holen; Meldung nur, wenn sich etwas geändert hat
+importTeamPlays().then(res => {
+  if (!res || !(res.added + res.updated)) return;
+  const msg = [];
+  if (res.added) msg.push(`${res.added} neu`);
+  if (res.updated) msg.push(`${res.updated} aktualisiert`);
+  toast('Mannschafts-Spielzüge: ' + msg.join(', '));
+  if (['dash', 'archive'].includes(currentView())) go(currentView());
+});
